@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
-
 :root { --bg:#08070d; --bg-2:#0d0b14; --surface:#12101a; --surface-2:#171420; --card:rgba(23,20,32,.72); --card-solid:#15131d; --text:#f5f3fb; --muted:#aaa5b8; --faint:#6e6979; --line:rgba(255,255,255,.10); --line-strong:rgba(255,255,255,.16); --purple:#a879ff; --purple-light:#cfb2ff; --violet:#7a4ce8; --pink:#ed73cc; --blue:#73a8ff; --green:#53d6a1; --yellow:#f7c96b; --red:#ff7b8f; --shadow:0 24px 60px rgba(0,0,0,.32); --mono:'DM Mono', monospace; --font:'Manrope', sans-serif; }
 :root[data-theme='light'] { --bg:#f7f5fa; --bg-2:#eeebf4; --surface:#fff; --surface-2:#f7f5fa; --card:rgba(255,255,255,.75); --card-solid:#fff; --text:#1b1724; --muted:#706b7b; --faint:#97919f; --line:rgba(35,24,50,.10); --line-strong:rgba(35,24,50,.16); --shadow:0 20px 48px rgba(45,25,70,.12); }
 * { box-sizing:border-box; }

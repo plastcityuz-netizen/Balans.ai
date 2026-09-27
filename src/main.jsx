@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useScroll, useTransform } from 'framer-motion';
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, Bell, Bot,
   Box, BriefcaseBusiness, Building2, CalendarDays, Check, CheckCircle2, ChevronDown,
@@ -14,7 +14,12 @@ import {
   ClipboardList, Banknote, KeyRound, LogOut, Eye, ExternalLink, ArrowLeft, RotateCcw,
   FileText, ListFilter, CircleHelp, Languages, ChevronUp, Shield, UserPlus, ScanSearch
 } from 'lucide-react';
+import '@fontsource-variable/inter';
+import '@fontsource/jetbrains-mono/300.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
 import './styles.css';
+import './design.css';
 
 const money = (value) => new Intl.NumberFormat('uz-UZ').format(value);
 
@@ -27,7 +32,21 @@ const metrics = [
 
 const navLinks = [
   ['Platforma', 'platforma'], ['AI CFO', 'ai-cfo'], ['Imkoniyatlar', 'imkoniyatlar'],
-  ['Tariflar', 'tariflar'], ['Bizneslar uchun', 'bizneslar'], ['Yordam', 'yordam']
+  ['Tariflar', 'tariflar'], ['Biznes', 'bizneslar']
+];
+
+// Hero application window — reference composition (sidebar + centered AI surface + quick actions + metric row)
+const heroSidebar = [
+  ['Dashboard', LayoutDashboard], ['AI CFO', Sparkles], ['Buxgalteriya', ReceiptText], ['Savdo', ShoppingBag],
+  ['Mijozlar', Users], ['Ombor', Warehouse], ['Xaridlar', ClipboardList], ['Moliya', Landmark],
+  ['Ishlab chiqarish', Factory], ['HR', UserCheck], ['Hisobotlar', FileBarChart], ['Sozlamalar', Settings]
+];
+const heroQuickActions = [
+  ['Sotuv', Plus], ['Xarajat', Plus], ['AI CFO', Sparkles], ['Hisobot', FileBarChart], ['Ombor', Package], ['To‘lov', Banknote]
+];
+const heroMetrics = [
+  ['Revenue', '1.28B', '+14.2%', true], ['Expenses', '742M', '+8.4%', false], ['Profit', '538M', '+7.8%', true],
+  ['Cash Flow', '+186M', '+12.1%', true], ['Inventory', '384M', '−2.4%', false], ['Receivables', '92M', '+4.6%', true]
 ];
 
 const moduleData = [
@@ -60,9 +79,31 @@ function cn(...classes) { return classes.filter(Boolean).join(' '); }
 
 function Logo({ compact = false, onClick }) {
   return <button className="brand" onClick={onClick} aria-label="BALANS AI bosh sahifa">
-    <span className="brand-mark"><i></i><i></i><i></i></span>
+    <span className="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M6.6 12c0-2.4 1.5-4.1 3.4-4.1 2.6 0 3.3 3 4 4.1.7 1.1 1.4 4.1 4 4.1 1.9 0 3.4-1.7 3.4-4.1s-1.5-4.1-3.4-4.1c-2.6 0-3.3 3-4 4.1-.7 1.1-1.4 4.1-4 4.1-1.9 0-3.4-1.7-3.4-4.1Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      </svg>
+    </span>
     {!compact && <span>BALANS <b>AI</b></span>}
   </button>;
+}
+
+/* Abstract AI symbol — breathing glow, used as the centrepiece of the product surface */
+function AiSymbol({ size = 92 }) {
+  const g = useSvgId('aiSym');
+  return <span className="ai-symbol" style={{ width: size, height: size }} aria-hidden="true">
+    <svg viewBox="0 0 120 120" fill="none">
+      <defs>
+        <linearGradient id={g} x1="8" y1="20" x2="112" y2="100" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#8b5cf6"/><stop offset=".45" stopColor="#e879f9"/><stop offset="1" stopColor="#38bdf8"/>
+        </linearGradient>
+      </defs>
+      <path d="M28 60c0-12.7 8-22 18.4-22 14 0 17.8 16 21.6 22 3.8 6 7.6 22 21.6 22C100 82 108 72.7 108 60s-8-22-18.4-22c-14 0-17.8 16-21.6 22-3.8 6-7.6 22-21.6 22C36 82 28 72.7 28 60Z"
+        stroke={`url(#${g})`} strokeWidth="2" strokeLinecap="round"/>
+      <path d="M28 60c0-12.7 8-22 18.4-22 14 0 17.8 16 21.6 22 3.8 6 7.6 22 21.6 22C100 82 108 72.7 108 60s-8-22-18.4-22c-14 0-17.8 16-21.6 22-3.8 6-7.6 22-21.6 22C36 82 28 72.7 28 60Z"
+        stroke="#fff" strokeOpacity=".5" strokeWidth=".6" strokeLinecap="round"/>
+    </svg>
+  </span>;
 }
 
 function Button({ children, variant = 'primary', size = '', className = '', icon: Icon, iconRight = true, ...props }) {
@@ -89,33 +130,71 @@ function Modal({ open, onClose, title, subtitle, children, wide = false }) {
 
 function Toast({ message }) { return <AnimatePresence>{message && <motion.div className="toast" initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}><CheckCircle2 size={17}/>{message}</motion.div>}</AnimatePresence>; }
 
+/* Cinematic black canvas + slow flowing neon light ribbon (GPU: transform/opacity only) */
+let svgUid = 0;
+function useSvgId(prefix) { return useMemo(() => `${prefix}-${++svgUid}`, [prefix]); }
+
 function RibbonBackdrop({ subtle = false }) {
+  const a = useSvgId('ribA'), b = useSvgId('ribB'), c = useSvgId('ribC');
   return <div aria-hidden="true" className={cn('ribbon-backdrop', subtle && 'ribbon-subtle')}>
-    <span className="ribbon ribbon-one"></span><span className="ribbon ribbon-two"></span><span className="ribbon ribbon-three"></span><span className="ribbon ribbon-four"></span>
+    <span className="aurora-core"></span>
+    <svg className="ribbon-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id={a} x1="0" y1="0" x2="1600" y2="300" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#4c1d95" stopOpacity="0"/><stop offset=".18" stopColor="#6d28d9" stopOpacity=".34"/>
+          <stop offset=".42" stopColor="#c026d3" stopOpacity=".58"/><stop offset=".68" stopColor="#7c3aed" stopOpacity=".44"/>
+          <stop offset=".88" stopColor="#2563eb" stopOpacity=".22"/><stop offset="1" stopColor="#0ea5e9" stopOpacity="0"/>
+        </linearGradient>
+        <linearGradient id={b} x1="1600" y1="200" x2="0" y2="700" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#0ea5e9" stopOpacity="0"/><stop offset=".22" stopColor="#3b82f6" stopOpacity=".26"/>
+          <stop offset=".52" stopColor="#a855f7" stopOpacity=".46"/><stop offset=".78" stopColor="#ec4899" stopOpacity=".3"/>
+          <stop offset="1" stopColor="#f472b6" stopOpacity="0"/>
+        </linearGradient>
+        <linearGradient id={c} x1="200" y1="900" x2="1400" y2="500" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#7c3aed" stopOpacity="0"/><stop offset=".4" stopColor="#d946ef" stopOpacity=".26"/>
+          <stop offset=".75" stopColor="#6366f1" stopOpacity=".22"/><stop offset="1" stopColor="#22d3ee" stopOpacity="0"/>
+        </linearGradient>
+      </defs>
+      <g className="rib rib-a"><path d="M-280 585C120 345 430 775 780 545s560-360 1140-590" stroke={`url(#${a})`} strokeWidth="128" strokeLinecap="round" fill="none"/></g>
+      <g className="rib rib-b"><path d="M1880 420C1480 660 1180 300 820 530S210 900-340 1080" stroke={`url(#${b})`} strokeWidth="96" strokeLinecap="round" fill="none"/></g>
+      <g className="rib rib-c"><path d="M-200 820C260 700 520 900 900 760s480-250 940-360" stroke={`url(#${c})`} strokeWidth="72" strokeLinecap="round" fill="none"/></g>
+      <g className="rib rib-d"><path d="M-280 585C120 345 430 775 780 545s560-360 1140-590" stroke={`url(#${a})`} strokeWidth="14" strokeLinecap="round" fill="none" opacity=".85"/></g>
+    </svg>
+    <span className="aurora-veil"></span>
     <span className="noise"></span>
   </div>;
 }
 
 function LandingNav({ go, theme, toggleTheme, onLogin, onStart }) {
   const [menu, setMenu] = useState(false);
-  const [lang, setLang] = useState(false);
-  const scroll = (id) => { setMenu(false); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const [active, setActive] = useState('');
+  const [scrolled, setScrolled] = useState(false);
+  const scroll = (id) => { setMenu(false); setActive(id); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   return <>
-    <header className="landing-header"><nav className="landing-nav">
-      <Logo onClick={() => go('/')} />
-      <div className="nav-links">{navLinks.map(([label, id]) => <button key={id} onClick={() => scroll(id)}>{label}</button>)}</div>
-      <div className="nav-actions">
-        <div className="language-wrap"><button className="language" onClick={() => setLang(!lang)}>UZ <ChevronDown size={13}/></button>{lang && <div className="mini-popover lang-popover"><button className="active">O‘zbekcha <Check size={14}/></button><button>Русский</button></div>}</div>
-        <button className="theme-toggle" onClick={toggleTheme} aria-label="Mavzuni almashtirish">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}</button>
-        <Button variant="quiet" onClick={onLogin}>Kirish</Button>
-        <Button onClick={onStart} icon={ArrowRight}>Bepul boshlash</Button>
-      </div>
-      <button className="menu-toggle" onClick={() => setMenu(!menu)}>{menu ? <X/> : <Menu/>}</button>
-    </nav>
-    <AnimatePresence>{menu && <motion.div className="mobile-menu" initial={{opacity:0, y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}}>
-      {navLinks.map(([label,id]) => <button key={id} onClick={() => scroll(id)}>{label}<ChevronRight size={16}/></button>)}
-      <div className="mobile-menu-bottom"><Button variant="secondary" onClick={onLogin}>Kirish</Button><Button onClick={onStart}>Bepul boshlash</Button></div>
-    </motion.div>}</AnimatePresence>
+    <header className={cn('landing-header', scrolled && 'is-scrolled')}>
+      <nav className="landing-nav">
+        <Logo onClick={() => go('/')} />
+        <div className="nav-links">{navLinks.map(([label, id]) => <button key={id} className={active === id ? 'active' : ''} onClick={() => scroll(id)}>{label}</button>)}</div>
+        <div className="nav-actions">
+          <button className="nav-ghost" onClick={onLogin}>Kirish</button>
+          <button className="nav-cta" onClick={onStart}>Bepul boshlash</button>
+        </div>
+        <button className="menu-toggle" onClick={() => setMenu(!menu)} aria-label="Menyu">{menu ? <X size={18}/> : <Menu size={18}/>}</button>
+      </nav>
+      <AnimatePresence>{menu && <motion.div className="mobile-menu" initial={{opacity:0, y:-10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-10}} transition={{duration:.28,ease:[.22,1,.36,1]}}>
+        {navLinks.map(([label,id]) => <button key={id} onClick={() => scroll(id)}>{label}<ChevronRight size={15}/></button>)}
+        <div className="mobile-menu-bottom">
+          <button className="nav-ghost" onClick={() => { setMenu(false); onLogin(); }}>Kirish</button>
+          <button className="nav-cta" onClick={() => { setMenu(false); onStart(); }}>Bepul boshlash</button>
+        </div>
+        <button className="mobile-theme" onClick={toggleTheme}>{theme === 'dark' ? <><Sun size={14}/> Yorug‘ rejim</> : <><Moon size={14}/> Tungi rejim</>}</button>
+      </motion.div>}</AnimatePresence>
     </header>
   </>;
 }
@@ -149,25 +228,72 @@ function MiniChart({ line = 'revenue' }) {
   </svg>;
 }
 
+const easeOut = [0.22, 1, 0.36, 1];
+
 function Hero({ go, onStart }) {
  return <section className="hero"><RibbonBackdrop/>
    <div className="hero-inner">
-     <motion.div className="hero-copy" initial={{opacity:0,y:22}} animate={{opacity:1,y:0}} transition={{duration:.7}}>
-       <div className="announcement"><span className="pulse-star"><Sparkles size={13}/></span> AI Business Operating System <span className="announcement-dot"></span> O‘zbekiston uchun</div>
-       <h1>Biznesingizni <em>raqamlar emas,</em> AI boshqarsin.</h1>
-       <p>Buxgalteriya, moliya, savdo, ombor va ishlab chiqarish — bitta aqlli platformada. Biznes holatini soniyalar ichida tushuning.</p>
-       <div className="hero-actions"><Button onClick={onStart} icon={ArrowRight}>30 kun bepul boshlash</Button><Button variant="secondary" onClick={() => go('/app/dashboard')} icon={PlayIcon} iconRight={false}>Platformani ko‘rish</Button></div>
-       <div className="hero-proof"><span><CheckCircle2 size={16}/> Karta talab qilinmaydi</span><span><CheckCircle2 size={16}/> 30 kun to‘liq imkoniyat</span></div>
+     <motion.p className="hero-eyebrow" initial={{opacity:0,y:14}} animate={{opacity:1,y:0}} transition={{duration:.8,ease:easeOut}}>
+       AI buxgalteriya va biznes boshqaruvi
+     </motion.p>
+     <motion.h1 initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:.9,delay:.06,ease:easeOut}}>
+       <span className="line-thin">Biznesingizni raqamlar emas,</span>
+       <span className="line-strong">AI boshqarsin.</span>
+     </motion.h1>
+     <motion.p className="hero-lead" initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:.9,delay:.14,ease:easeOut}}>
+       Buxgalteriya, moliya, savdo, ombor va ishlab chiqarish — bitta aqlli platformada.
+     </motion.p>
+     <motion.div className="hero-actions" initial={{opacity:0,y:16}} animate={{opacity:1,y:0}} transition={{duration:.9,delay:.2,ease:easeOut}}>
+       <button className="cta-primary" onClick={onStart}>30 kun bepul boshlash</button>
+       <button className="cta-secondary" onClick={() => go('/app/dashboard')}><PlayIcon size={13}/> Platformani ko‘rish</button>
      </motion.div>
-     <motion.div className="hero-dashboard-wrap" initial={{opacity:0,y:34, rotateX:8}} animate={{opacity:1,y:0,rotateX:0}} transition={{duration:1,delay:.15}}>
-      <div className="dashboard-orbit orbit-a"></div><div className="dashboard-orbit orbit-b"></div>
-      <DashboardPreview/>
-      <div className="float-alert float-alert-top"><span className="float-icon purple"><Sparkles size={15}/></span><div><small>AI CFO</small><b>Cash Flow prognozi tayyor</b></div></div>
-      <div className="float-alert float-alert-bottom"><span className="float-icon green"><TrendingUp size={15}/></span><div><small>BUGUNGI SAVDO</small><b>+12.4% yuqori</b></div></div>
+     <motion.div className="hero-window-wrap" initial={{opacity:0,y:56,scale:.985}} animate={{opacity:1,y:0,scale:1}} transition={{duration:1.3,delay:.28,ease:easeOut}}>
+       <HeroParallax><HeroAppWindow go={go}/></HeroParallax>
      </motion.div>
    </div>
-   <div className="hero-scroll"><span></span> Pastga kashf qiling</div>
  </section>
+}
+
+/* subtle scroll parallax + depth for the product window */
+function HeroParallax({ children }) {
+  const { scrollY } = useScroll();
+  const y = useTransform(scrollY, [0, 900], [0, -70]);
+  const scale = useTransform(scrollY, [0, 900], [1, 0.965]);
+  const opacity = useTransform(scrollY, [0, 760, 1050], [1, 1, 0.35]);
+  return <motion.div style={{ y, scale, opacity, transformOrigin: '50% 0%' }}>{children}</motion.div>;
+}
+
+function HeroAppWindow({ go }) {
+ return <div className="app-window">
+   <div className="aw-sidebar">
+     <div className="aw-brand"><Logo compact/><span>BALANS <b>AI</b></span></div>
+     <nav className="aw-nav">
+       {heroSidebar.map(([label, Icon], i) => <span key={label} className={cn(i === 0 && 'active', label === 'AI CFO' && 'ai')}><Icon size={14}/>{label}</span>)}
+     </nav>
+     <div className="aw-side-foot"><span className="aw-avatar">AK</span><div><b>Aziz Karimov</b><small>Owner</small></div></div>
+   </div>
+   <div className="aw-main">
+     <div className="aw-topbar">
+       <span className="aw-crumb">Navqiron Trade <i>/</i> Dashboard</span>
+       <span className="aw-search"><Search size={12}/> Qidirish</span>
+       <span className="aw-live"><i></i> Real-time</span>
+     </div>
+     <div className="aw-stage">
+       <AiSymbol size={84}/>
+       <span className="aw-kicker">BALANS AI</span>
+       <h3>Xayrli tong</h3>
+       <p>Bugungi biznesingiz holatini tahlil qiling.</p>
+       <div className="aw-actions">
+         {heroQuickActions.map(([label, Icon], i) => <button key={label} className={cn(i < 2 && 'plus')} onClick={() => go(i === 2 ? '/app/ai-cfo' : '/app/dashboard')}><Icon size={12}/>{label}</button>)}
+       </div>
+     </div>
+     <div className="aw-metrics">
+       {heroMetrics.map(([label, value, change, up]) => <div key={label}>
+         <span>{label}</span><b>{value}</b><small className={up ? 'positive' : 'negative'}>{up ? <ArrowUpRight size={10}/> : <ArrowDownRight size={10}/>}{change}</small>
+       </div>)}
+     </div>
+   </div>
+ </div>
 }
 function PlayIcon({size=16}) { return <span className="play-icon" style={{width:size,height:size}}/>; }
 
@@ -234,7 +360,20 @@ function FinalCta({onStart}) { return <section className="final-cta"><RibbonBack
 
 function Footer({go}) { return <footer className="footer"><div className="content-width footer-top"><div className="footer-brand"><Logo onClick={()=>go('/')}/><p>Biznesingizni raqamlar emas,<br/>AI boshqarsin.</p><div className="socials"><button><Send size={16}/></button><button><span>in</span></button><button><span>◎</span></button></div></div><div className="footer-links"><div><b>Platforma</b><button>Dashboard</button><button>AI CFO</button><button>Modullar</button><button>Integratsiyalar</button></div><div><b>Biznes</b><button>Tariflar</button><button>Security</button><button>Factory Mode</button><button>API</button></div><div><b>Yordam</b><button>Yordam markazi</button><button>Kontakt</button><button>Telegram</button><button>Status</button></div></div></div><div className="content-width footer-bottom"><span>© 2026 BALANS AI. Barcha huquqlar himoyalangan.</span><div><button>Maxfiylik</button><button>Foydalanish shartlari</button><button>Cookie policy</button></div></div></footer> }
 
-function Landing({go, theme, toggleTheme, onLogin, onStart}) { return <div className="landing"><LandingNav go={go} theme={theme} toggleTheme={toggleTheme} onLogin={onLogin} onStart={()=>onStart()}/><main><Hero go={go} onStart={()=>onStart()}/><TrustBar/><ProductDashboardSection go={go}/><AiCfoSection go={go}/><ModulesSection/><DataFlow/><FactorySection go={go}/><AutomationSection go={go}/><RoleSection/><ReportsSection go={go}/><PricingSection onStart={onStart}/><FaqSection/><FinalCta onStart={onStart}/></main><Footer go={go}/></div> }
+function useSectionReveal() {
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') { document.documentElement.classList.add('no-reveal'); return; }
+    const nodes = Array.from(document.querySelectorAll('.landing .section, .landing .final-cta, .landing .trustbar'));
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add('revealed'); io.unobserve(entry.target); } });
+    }, { rootMargin: '-4% 0px -10% 0px', threshold: 0.02 });
+    if (!nodes.length) { document.documentElement.classList.add('no-reveal'); return; }
+    nodes.forEach((n) => io.observe(n));
+    return () => io.disconnect();
+  }, []);
+}
+
+function Landing({go, theme, toggleTheme, onLogin, onStart}) { useSectionReveal(); return <div className="landing"><LandingNav go={go} theme={theme} toggleTheme={toggleTheme} onLogin={onLogin} onStart={()=>onStart()}/><main><Hero go={go} onStart={()=>onStart()}/><TrustBar/><ProductDashboardSection go={go}/><AiCfoSection go={go}/><ModulesSection/><DataFlow/><FactorySection go={go}/><AutomationSection go={go}/><RoleSection/><ReportsSection go={go}/><PricingSection onStart={onStart}/><FaqSection/><FinalCta onStart={onStart}/></main><Footer go={go}/></div> }
 
 function LoginModal({open,onClose,go,onToast}) { const [email,setEmail]=useState(''); const [pass,setPass]=useState(''); const [error,setError]=useState(''); const submit=e=>{e.preventDefault(); if(!email.includes('@')||pass.length<4){setError('Email va kamida 4 belgidan iborat parolni kiriting.');return;}onClose();onToast('Demo workspace ochildi');go('/app/dashboard')}; return <Modal open={open} onClose={onClose} title="Workspace’ga kirish" subtitle="BALANS AI hisobingiz orqali davom eting."><form className="auth-form" onSubmit={submit}><label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="siz@kompaniya.uz"/></label><label>Parol<div className="input-icon"><input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••"/><LockKeyhole size={16}/></div></label>{error&&<p className="form-error"><AlertCircle size={15}/>{error}</p>}<div className="auth-options"><label className="check-label"><input type="checkbox"/> <span>Esda saqlash</span></label><button type="button">Parolni unutdingizmi?</button></div><Button type="submit" icon={ArrowRight}>Kirish</Button><div className="auth-divider"><span>yoki</span></div><Button type="button" variant="secondary" onClick={()=>{onClose();go('/register')}}>30 kun bepul boshlash</Button><p className="demo-note"><CircleHelp size={14}/> Bu prototipda demo login ishlaydi. Server autentifikatsiyasi hali ulanmagan.</p></form></Modal> }
 
